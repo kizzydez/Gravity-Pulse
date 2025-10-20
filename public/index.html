@@ -115,32 +115,87 @@
     async function searchWallet() {
       const address = document.getElementById('walletInput').value.trim();
       if (!address) return showNotification('Please enter a wallet address', 'error');
-      if (!address.startsWith('0x') || address.length !== 42) return showNotification('Invalid wallet format', 'error');
+      if (!address.startsWith('0x') || address.length !== 42)
+        return showNotification('Invalid wallet format', 'error');
 
       showNotification('Fetching wallet data...', 'info');
       document.getElementById('features').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
 
       try {
-        const res = await fetch(`https://gravity-pulse-production.up.railway.app/api/wallet/${address}`);
+        const res = await fetch(`/api/wallet?address=${address}`);
         const data = await res.json();
-
         if (data.error) throw new Error(data.error);
 
-        document.getElementById('walletData').innerHTML = `
-          <div class="bg-black/30 backdrop-blur-md border border-purple-500/30 rounded-2xl p-6 card-glow">
+        let html = `
+          <div class="bg-black/30 backdrop-blur-md border border-purple-500/30 rounded-2xl p-6 card-glow mb-8">
             <h3 class="text-2xl font-bold mb-4">Wallet Overview</h3>
             <p><strong>Address:</strong> ${data.address}</p>
             <p><strong>Network:</strong> ${data.network}</p>
-            <p><strong>Balance:</strong> ${data.balance || '—'} GRAV</p>
-            <p><strong>RPC Endpoint:</strong> ${data.rpc}</p>
+            <p><strong>Native Balance:</strong> ${data.nativeBalance || '—'} GRAV</p>
+            <p><strong>Total Transactions:</strong> ${data.totalTransactions}</p>
+            <p><strong>First Transaction:</strong> ${data.firstTxDate}</p>
           </div>
         `;
 
+        if (data.tokens && data.tokens.length > 0) {
+          html += `
+            <div class="bg-black/30 backdrop-blur-md border border-blue-500/30 rounded-2xl p-6 card-glow mb-8">
+              <h3 class="text-xl font-bold mb-4">💎 Token Holdings</h3>
+              <ul class="space-y-2">
+                ${data.tokens.map(t => `
+                  <li class="flex justify-between border-b border-purple-500/20 pb-2">
+                    <span>${t.name} (${t.symbol})</span>
+                    <span>${t.balance}</span>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        } else {
+          html += `<p class="text-gray-400">No tokens found.</p>`;
+        }
+
+        if (data.nftHoldings && data.nftHoldings.length > 0) {
+          html += `
+            <div class="bg-black/30 backdrop-blur-md border border-pink-500/30 rounded-2xl p-6 card-glow mb-8">
+              <h3 class="text-xl font-bold mb-4">🖼 NFT Holdings</h3>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                ${data.nftHoldings.map(nft => `
+                  <div class="bg-black/40 p-3 rounded-xl border border-purple-400/20 text-sm">
+                    <img src="${nft.image || ''}" alt="${nft.name}" class="rounded-lg mb-2">
+                    <p class="font-semibold">${nft.name}</p>
+                    <p class="text-gray-400">${nft.collection || ''}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        if (data.txHistory && data.txHistory.length > 0) {
+          html += `
+            <div class="bg-black/30 backdrop-blur-md border border-green-500/30 rounded-2xl p-6 card-glow">
+              <h3 class="text-xl font-bold mb-4">🧾 Recent Transactions</h3>
+              <ul class="text-sm space-y-1">
+                ${data.txHistory.map(tx => `
+                  <li class="border-b border-purple-500/10 py-2">
+                    <span class="text-purple-300">Hash:</span>
+                    <a href="https://chainscan-galileo.0g.ai/tx/${tx.hash}" target="_blank" class="text-blue-400 hover:underline">${tx.hash.slice(0, 10)}...</a>
+                    <br>
+                    <span class="text-gray-400">Timestamp:</span> ${new Date(tx.timestamp * 1000).toLocaleString()}
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        }
+
+        document.getElementById('walletData').innerHTML = html;
         showNotification('Wallet analysis complete! 🚀', 'success');
       } catch (err) {
-        showNotification('Error fetching wallet data', 'error');
         console.error(err);
+        showNotification('Error fetching wallet data', 'error');
       }
     }
 
